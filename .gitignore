@@ -1,0 +1,15 @@
+**/*.pyc
+**/*.pyo
+**/__pycache__/
+
+# Jupyter Notebook checkpoints
+**/.ipynb_checkpoints
+
+# JSON files
+**/*.json
+
+# Image files
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
