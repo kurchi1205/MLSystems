@@ -3,6 +3,8 @@ from typing import Dict, List
 import numpy as np
 import pytest
 
+import sys
+sys.path.insert(0, "./")
 import auto_diff as ad
 
 

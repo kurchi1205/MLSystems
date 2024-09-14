@@ -211,6 +211,8 @@ class MulOp(Op):
     def gradient(self, node: Node, output_grad: Node) -> List[Node]:
         """Given gradient of multiplication node, return partial adjoint to each input."""
         """TODO: Your code here"""
+        x1, x2 = node.inputs[0], node.inputs[1]
+        return [output_grad*x2, output_grad*x1]
 
 
 class MulByConstOp(Op):
@@ -233,6 +235,7 @@ class MulByConstOp(Op):
     def gradient(self, node: Node, output_grad: Node) -> List[Node]:
         """Given gradient of multiplication node, return partial adjoint to the input."""
         """TODO: Your code here"""
+        return [output_grad * node.constant]
 
 
 class DivOp(Op):
@@ -255,6 +258,9 @@ class DivOp(Op):
     def gradient(self, node: Node, output_grad: Node) -> List[Node]:
         """Given gradient of division node, return partial adjoint to each input."""
         """TODO: Your code here"""
+        x1 = node.inputs[0]
+        x2 = node.inputs[1]
+        return [output_grad/x2, (output_grad * (-1) * x1) / (x2 * x2)]
 
 
 class DivByConstOp(Op):
@@ -278,6 +284,7 @@ class DivByConstOp(Op):
     def gradient(self, node: Node, output_grad: Node) -> List[Node]:
         """Given gradient of division node, return partial adjoint to the input."""
         """TODO: Your code here"""
+        return [output_grad / node.constant]
 
 
 class MatMulOp(Op):
@@ -326,6 +333,8 @@ class MatMulOp(Op):
             input_values[0] = input_values[0].T
         if node.trans_B:
             input_values[1] = input_values[1].T
+        print(input_values[0].shape)
+        print(input_values[1].shape)
         assert input_values[0].shape[1] == input_values[1].shape[0]
         return input_values[0]@input_values[1]
 
@@ -341,6 +350,9 @@ class MatMulOp(Op):
         - You may want to look up some materials for the gradients of matmul.
         """
         """TODO: Your code here"""
+        x1 = node.inputs[0]
+        x2 = node.inputs[1]
+        return [matmul(output_grad, x2, trans_B=not(node.trans_B)), matmul(x1, output_grad, trans_A=not(node.trans_A))]
 
 
 class ZerosLikeOp(Op):
