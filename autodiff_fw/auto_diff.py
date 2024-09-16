@@ -211,8 +211,8 @@ class MulOp(Op):
     def gradient(self, node: Node, output_grad: Node) -> List[Node]:
         """Given gradient of multiplication node, return partial adjoint to each input."""
         """TODO: Your code here"""
-        x1, x2 = node.inputs[0], node.inputs[1]
-        return [output_grad*x2, output_grad*x1]
+        inp_1, inp_2 = node.inputs[0], node.inputs[1]
+        return [mul(output_grad, inp_2), mul(output_grad, inp_1)]
 
 
 class MulByConstOp(Op):
@@ -333,8 +333,6 @@ class MatMulOp(Op):
             input_values[0] = input_values[0].T
         if node.trans_B:
             input_values[1] = input_values[1].T
-        print(input_values[0].shape)
-        print(input_values[1].shape)
         assert input_values[0].shape[1] == input_values[1].shape[0]
         return input_values[0]@input_values[1]
 
@@ -352,7 +350,11 @@ class MatMulOp(Op):
         """TODO: Your code here"""
         x1 = node.inputs[0]
         x2 = node.inputs[1]
-        return [matmul(output_grad, x2, trans_B=not(node.trans_B)), matmul(x1, output_grad, trans_A=not(node.trans_A))]
+        trans_b = not(node.trans_B)
+        trans_a = not(node.trans_A)
+        x1_grad = matmul(output_grad, x2, trans_B=trans_b)
+        x2_grad = matmul(x1, output_grad, trans_A=trans_a)
+        return [x1_grad, x2_grad]
 
 
 class ZerosLikeOp(Op):
@@ -398,6 +400,15 @@ matmul = MatMulOp()
 zeros_like = ZerosLikeOp()
 ones_like = OnesLikeOp()
 
+def topologicalSortUtil(node, visited, sorted_nodes):
+    visited.add(node)
+
+    for i in node.inputs:
+        if i not in visited:
+            topologicalSortUtil(i, visited, sorted_nodes)
+
+    sorted_nodes.append(node)
+
 
 class Evaluator:
     """The node evaluator that computes the values of nodes in a computational graph."""
@@ -415,17 +426,6 @@ class Evaluator:
         self.eval_nodes = eval_nodes
         self.sorted_nodes = []
 
-    def topologicalSortUtil(self, node, visited):
-        # Mark the current node as visited
-        visited.add(node)
-
-        # Recur for all adjacent vertices
-        for i in node.inputs:
-            if i not in visited:
-                self.topologicalSortUtil(i, visited)
-
-        # Push current vertex to stack which stores the result
-        self.sorted_nodes.append(node)
 
     def run(self, input_values: Dict[Node, np.ndarray]) -> List[np.ndarray]:
         """Computes values of nodes in `eval_nodes` field with
@@ -446,11 +446,12 @@ class Evaluator:
         """
         """TODO: Your code here"""
         visited = set()
+        sorted_nodes = []
         for node in self.eval_nodes:
-            self.topologicalSortUtil(node, visited)
+            topologicalSortUtil(node, visited, sorted_nodes)
 
         computed = {}
-        for node in self.sorted_nodes:
+        for node in sorted_nodes:
             if len(node.inputs) == 0:
                 input_values_for_node = input_values[node]
                 computed[node] = input_values[node]
@@ -464,6 +465,9 @@ class Evaluator:
                         input_values_for_node.append(input_values[inp_node])
                 computed[node] = node.op.compute(node, input_values_for_node)
         return [computed[node] for node in self.eval_nodes]
+
+
+
 
 def gradients(output_node: Node, nodes: List[Node]) -> List[Node]:
     """Construct the backward computational graph, which takes gradient
@@ -485,3 +489,29 @@ def gradients(output_node: Node, nodes: List[Node]) -> List[Node]:
     """
 
     """TODO: Your code here"""
+    grad_node = Node(inputs=[], op=None, attrs={"constant": 1.0}, name="input_node")
+    node_to_grad = {
+        output_node: [ones_like(output_node)]
+    }
+    sorted_nodes = []
+    visited = set()
+    topologicalSortUtil(output_node, visited, sorted_nodes)
+   
+    for i in reversed(sorted_nodes):
+        delta_v_i = node_to_grad[i][0]
+        for grad in node_to_grad[i][1:]:
+            delta_v_i = add(delta_v_i, grad)
+        for n, k in enumerate(i.inputs):
+            delta_v_k_i = i.op.gradient(i, delta_v_i)[n]
+            if k not in node_to_grad:
+                node_to_grad[k] = []
+            node_to_grad[k].append(delta_v_k_i)
+    grad_array = []
+    for node in nodes:
+        if node in node_to_grad:
+            adj = node_to_grad[node][0]
+            for grad in node_to_grad[node][1:]:
+                adj = add(adj, grad)
+        grad_array.append(adj)
+
+    return grad_array
