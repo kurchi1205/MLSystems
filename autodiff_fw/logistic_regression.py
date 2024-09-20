@@ -30,6 +30,9 @@ def logistic_regression(X: ad.Node, W: ad.Node, b: ad.Node) -> ad.Node:
         When evaluating, it should have shape (batch_size, num_classes).
     """
     """TODO: Your code here"""
+    w1 = ad.matmul(X, W)
+    y = w1 + ad.broadcast(b, w1)
+    return y
 
 
 def softmax_loss(Z: ad.Node, y_one_hot: ad.Node, batch_size: int) -> ad.Node:
@@ -65,6 +68,16 @@ def softmax_loss(Z: ad.Node, y_one_hot: ad.Node, batch_size: int) -> ad.Node:
     """
     """TODO: Your code here"""
 
+    exp_Z = ad.exp(Z)
+    sum_exp_Z = ad.sum_op(exp_Z, axis=1, keepdims=True)
+    softmax_probs = exp_Z / sum_exp_Z
+    log_softmax = ad.log(softmax_probs)
+    loss = (-1 * ad.sum_op(log_softmax * y_one_hot))/ batch_size
+    return loss
+
+
+def one_hot_encode(y, num_classes):
+    return np.eye(num_classes)[y]
 
 def sgd_epoch(
     f_run_model: Callable[
@@ -77,6 +90,7 @@ def sgd_epoch(
     b: np.ndarray,
     batch_size: int,
     lr: float,
+    num_classes: int
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Run an epoch of SGD for the logistic regression model
     on training data with regard to the given mini-batch size
@@ -125,6 +139,26 @@ def sgd_epoch(
         The average training loss of this epoch.
     """
     """TODO: Your code here"""
+    num_examples = X.shape[0]
+    indices = np.arange(num_examples)
+    np.random.shuffle(indices)
+
+    total_loss = 0.0
+    num_batches = 0
+
+    for start_idx in range(0, num_examples, batch_size):
+        batch_indices = indices[start_idx: start_idx + batch_size]
+        X_batch = X[batch_indices]
+        Y_batch = y[batch_indices]
+        y_one_hot = one_hot_encode(Y_batch, num_classes)
+        z_val, loss, grad_W, grad_b = f_run_model(X_batch, y_one_hot, W, b)
+        W = W - lr * grad_W
+        b = b - lr * grad_b
+        total_loss += loss
+        num_batches += 1
+
+    avg_loss = total_loss / num_batches
+    return W, b, avg_loss
 
 
 def train_model():
@@ -137,7 +171,7 @@ def train_model():
     # - Set up the training settings.
     num_epochs = 100
     batch_size = 50
-    lr = 0.05
+    lr = 0.001
 
     # - Define the forward graph.
     x = ad.Variable(name="x")
@@ -162,7 +196,7 @@ def train_model():
     in_features = functools.reduce(lambda x1, x2: x1 * x2, digits.images[0].shape, 1)
 
     # - Initialize model weights.
-    np.random.seed(0)
+    np.random.seed(10)
     stdv = 1.0 / np.sqrt(num_classes)
     W_val = np.random.uniform(-stdv, stdv, (in_features, num_classes))
     b_val = np.random.uniform(-stdv, stdv, (num_classes,))
@@ -185,7 +219,7 @@ def train_model():
     for epoch in range(num_epochs):
         X_train, y_train = shuffle(X_train, y_train)
         W_val, b_val, loss_val = sgd_epoch(
-            f_run_model, X_train, y_train, W_val, b_val, batch_size, lr
+            f_run_model, X_train, y_train, W_val, b_val, batch_size, lr, num_classes
         )
 
         # - Evaluate the model on the test data.

@@ -387,6 +387,123 @@ class OnesLikeOp(Op):
         return [zeros_like(node.inputs[0])]
 
 
+class BroadCastOp(Op):
+
+    def __call__(self, node_A: Node, node_B: Node) -> Node:
+        return Node(
+            inputs=[node_A, node_B],
+            op=self,
+            attrs={
+                "original_shape": None,
+                "target_shape": None,
+            },
+            name=f"({node_A.name}).broadcast_to({node_B.name})",
+        )
+    
+    def compute(self, node: Node, input_values: List[np.ndarray]):
+        assert len(input_values) == 2
+        x = input_values[0]
+        shape = input_values[1].shape
+        y = np.broadcast_to(x, shape)
+        return y
+
+    def gradient(self, node: Node, output_grad: Node) -> List[Node]:
+        zero_grad = zeros_like(node.inputs[1])
+        reduced_grad = sum_op(output_grad, axis=0, keepdims=False)
+        return [reduced_grad, zero_grad]
+    
+
+
+
+class SumOp(Op):
+    """Op to perform summation over specified axes."""
+
+    def __call__(self, node_A: Node, axis=None, keepdims=False) -> Node:
+        """Create a sum operation node."""
+        return Node(
+            inputs=[node_A],
+            op=self,
+            attrs={
+                "axis": axis, 
+                "keepdims": keepdims,
+                "original_shape": None,
+            },
+            name=f"sum({node_A.name})",
+        )
+
+    def compute(self, node: Node, input_values: List[np.ndarray]) -> np.ndarray:
+        """Compute the summation over specified axes."""
+        assert len(input_values) == 1
+        node.original_shape = input_values[0].shape
+        axis = node.attrs["axis"]
+        keepdims = node.attrs["keepdims"]
+        return np.sum(input_values[0], axis=axis, keepdims=keepdims)
+
+    def gradient(self, node: Node, output_grad: Node) -> List[Node]:
+        """Given the gradient of the summation, return the gradient of the input."""
+        input_shape = node.original_shape
+        axis = node.attrs["axis"]
+        keepdims = node.attrs["keepdims"]
+
+        # If keepdims is False, expand output_grad to match input shape using BroadcastToOp
+        if not keepdims and axis is not None:
+            expanded_output_grad = broadcast_to(output_grad, input_shape)
+        else:
+            expanded_output_grad = output_grad
+
+        return [expanded_output_grad]
+
+class ExpOp(Op):
+    """Element-wise exponential operation with caching."""
+    
+    def __call__(self, node_A: Node) -> Node:
+        """Create a new node that represents the exp operation."""
+        return Node(
+            inputs=[node_A],
+            op=self,
+            attrs={
+                "exp_calc": None, 
+            },
+            name=f"exp({node_A.name})"
+        )
+
+    def compute(self, node: Node, input_values: List[np.ndarray]) -> np.ndarray:
+        """Compute the exponential of input values and store the result in node.attrs."""
+        assert len(input_values) == 1
+        exp_x = np.exp(input_values[0])
+        return exp_x
+
+    def gradient(self, node: Node, output_grad: Node) -> List[Node]:
+        """Compute the gradient of the exp operation using cached value."""
+        calc_exp_x = exp(node.inputs[0])
+        return [mul(output_grad, calc_exp_x)]
+
+class LogOp(Op):
+    """Log operation with input caching."""
+    
+    def __call__(self, node_A: Node) -> Node:
+        """Create a new node that represents the exp operation."""
+        return Node(
+            inputs=[node_A],
+            op=self,
+            name=f"log({node_A.name})",
+            attrs={
+                "input_val": None, 
+            }
+        )
+
+    def compute(self, node: Node, input_values: List[np.ndarray]) -> np.ndarray:
+        """Compute the exponential of input values and store the result in node.attrs."""
+        assert len(input_values) == 1
+        log_x = np.log(input_values[0])
+        return log_x
+
+    def gradient(self, node: Node, output_grad: Node) -> List[Node]:
+        """Compute the gradient of the exp operation using cached value."""
+        input_val = node.inputs[0]
+        return [div(output_grad, input_val)]
+
+
 # Create global instances of ops.
 # Your implementation should just use these instances, rather than creating new instances.
 placeholder = PlaceholderOp()
@@ -399,6 +516,10 @@ div_by_const = DivByConstOp()
 matmul = MatMulOp()
 zeros_like = ZerosLikeOp()
 ones_like = OnesLikeOp()
+broadcast = BroadCastOp()
+sum_op = SumOp()
+exp = ExpOp()
+log = LogOp()
 
 def topologicalSortUtil(node, visited, sorted_nodes):
     visited.add(node)
