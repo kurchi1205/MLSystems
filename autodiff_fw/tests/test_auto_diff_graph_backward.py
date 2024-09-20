@@ -2,6 +2,9 @@ from typing import Dict, List
 
 import numpy as np
 
+import sys
+sys.path.insert(0, "./")
+
 import auto_diff as ad
 
 
@@ -51,7 +54,6 @@ def test_gradient_of_gradient():
     grad_x1, grad_x2 = ad.gradients(y, [x1, x2])
     grad_x1_x1, grad_x1_x2 = ad.gradients(grad_x1, [x1, x2])
     grad_x2_x1, grad_x2_x2 = ad.gradients(grad_x2, [x1, x2])
-
     evaluator = ad.Evaluator(
         [y, grad_x1, grad_x2, grad_x1_x1, grad_x1_x2, grad_x2_x1, grad_x2_x2]
     )

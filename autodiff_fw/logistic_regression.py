@@ -138,11 +138,9 @@ def sgd_epoch(
     loss: np.ndarray
         The average training loss of this epoch.
     """
-    """TODO: Your code here"""
     num_examples = X.shape[0]
     indices = np.arange(num_examples)
     np.random.shuffle(indices)
-
     total_loss = 0.0
     num_batches = 0
 
@@ -171,7 +169,7 @@ def train_model():
     # - Set up the training settings.
     num_epochs = 100
     batch_size = 50
-    lr = 0.001
+    lr = 0.01
 
     # - Define the forward graph.
     x = ad.Variable(name="x")
@@ -196,7 +194,7 @@ def train_model():
     in_features = functools.reduce(lambda x1, x2: x1 * x2, digits.images[0].shape, 1)
 
     # - Initialize model weights.
-    np.random.seed(10)
+    np.random.seed(0)
     stdv = 1.0 / np.sqrt(num_classes)
     W_val = np.random.uniform(-stdv, stdv, (in_features, num_classes))
     b_val = np.random.uniform(-stdv, stdv, (num_classes,))

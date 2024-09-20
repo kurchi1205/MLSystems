@@ -481,7 +481,7 @@ class ExpOp(Op):
     def compute(self, node: Node, input_values: List[np.ndarray]) -> np.ndarray:
         """Compute the exponential of input values and store the result in node.attrs."""
         assert len(input_values) == 1
-        exp_x = np.exp(input_values[0])
+        exp_x = np.exp(input_values[0] - np.max(input_values[0], axis=-1, keepdims=True)) 
         return exp_x
 
     def gradient(self, node: Node, output_grad: Node) -> List[Node]:
@@ -512,7 +512,7 @@ class LogOp(Op):
     def gradient(self, node: Node, output_grad: Node) -> List[Node]:
         """Compute the gradient of the exp operation using cached value."""
         input_val = node.inputs[0]
-        return [div(output_grad, node)]
+        return [div(output_grad, input_val)]
 
 
 # Create global instances of ops.
