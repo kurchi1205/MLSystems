@@ -333,6 +333,7 @@ class MatMulOp(Op):
             input_values[0] = input_values[0].T
         if node.trans_B:
             input_values[1] = input_values[1].T
+
         assert input_values[0].shape[1] == input_values[1].shape[0]
         return input_values[0]@input_values[1]
 
@@ -348,13 +349,23 @@ class MatMulOp(Op):
         - You may want to look up some materials for the gradients of matmul.
         """
         """TODO: Your code here"""
-        x1 = node.inputs[0]
-        x2 = node.inputs[1]
-        trans_b = not(node.trans_B)
-        trans_a = not(node.trans_A)
-        x1_grad = matmul(output_grad, x2, trans_B=trans_b)
-        x2_grad = matmul(x1, output_grad, trans_A=trans_a)
-        return [x1_grad, x2_grad]
+        # Extract inputs A and B
+        x1 = node.inputs[0]  
+        x2 = node.inputs[1] 
+
+        if node.trans_B and node.trans_A:
+            grad_wrt_x1 = matmul(x2, output_grad, trans_A=True)
+            grad_wrt_x2 = matmul(output_grad, x1, trans_B=True)
+        elif node.trans_B and not(node.trans_A):
+            grad_wrt_x1 = matmul(output_grad, x2)
+            grad_wrt_x2 = matmul(output_grad, x1, trans_A=True)
+        elif not(node.trans_B) and node.trans_A:
+            grad_wrt_x1 = matmul(x2, output_grad)
+            grad_wrt_x2 = matmul(x1, output_grad)
+        elif not(node.trans_B) and not(node.trans_A):
+            grad_wrt_x1 = matmul(output_grad, x2, trans_B=True)
+            grad_wrt_x2 = matmul(x1, output_grad, trans_A=True)
+        return [grad_wrt_x1, grad_wrt_x2]
 
 
 class ZerosLikeOp(Op):
@@ -501,7 +512,7 @@ class LogOp(Op):
     def gradient(self, node: Node, output_grad: Node) -> List[Node]:
         """Compute the gradient of the exp operation using cached value."""
         input_val = node.inputs[0]
-        return [div(output_grad, input_val)]
+        return [div(output_grad, node)]
 
 
 # Create global instances of ops.
