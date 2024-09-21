@@ -72,7 +72,7 @@ def softmax_loss(Z: ad.Node, y_one_hot: ad.Node, batch_size: int) -> ad.Node:
     sum_exp_Z = ad.sum_op(exp_Z, axis=1, keepdims=True)
     softmax_probs = exp_Z / sum_exp_Z
     log_softmax = ad.log(softmax_probs)
-    loss = (-1 * ad.sum_op(log_softmax * y_one_hot))/ batch_size
+    loss = (-1 * ad.sum_op(log_softmax * y_one_hot))/ batch_size # we are averaging over a batch so we need batch size
     return loss
 
 
