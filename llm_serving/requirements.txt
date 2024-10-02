@@ -1,0 +1,3 @@
+huggingface_hub[cli,torch]==0.24.6
+transformers==4.44.2
+pytest==8.3.3
