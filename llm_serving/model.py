@@ -248,7 +248,18 @@ class Attention(nn.Module):
         # 7. organize the attention output to [bs, seq_len, hidden_size] and return
 
         # Hint: use torch.finfo(attn_scores.dtype).min to get the mask value
-        pass
+        att_scores = torch.einsum('bhqd, bhdk -> bhqk', query, key.transpose(-2, -1)) / (query.size(3)**-0.5)
+        causal_mask = self.bias[:, :, :query.size(2), :key.size(2)]
+        att_scores_masked = torch.where(causal_mask > 0, att_scores, torch.finfo(att_scores.dtype).min)
+        if attention_mask is not None:
+            att_scores_masked = att_scores_masked + attention_mask
+        attn_with_softmax = torch.nn.functional.softmax(att_scores_masked, dim=-1)
+        attn_with_dropout = self.attention_dropout(attn_with_softmax)
+        attn_values = torch.einsum('bhqk, bhkd -> bhqd', attn_with_dropout, value)
+        attn_values = attn_values.view(query.size(0), query.size(2), -1)
+        return attn_values
+
+
 
 
 class FeedForward(nn.Module):
