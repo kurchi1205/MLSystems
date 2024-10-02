@@ -1,5 +1,7 @@
 import pytest
 import torch
+import sys
+sys.path.insert(0, "./")
 from model import KVCache
 
 

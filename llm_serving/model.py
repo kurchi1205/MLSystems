@@ -24,12 +24,19 @@ class KVCache:
         # Concatenate the key and value tensors along the sequence length dimension
         # If the cache is empty, initialize it with the key and value tensors
         # return the updated key and value tensors
-        pass
+        if self.key is not None:
+            self.key = torch.cat([self.key, key], dim=2)
+            self.value = torch.cat([self.value, value], dim=2)
+        else:
+            self.key = key
+            self.value = value
+        return self.key, self.value
 
     def past_key_values_length(self) -> int:
         # (TODO) Task 2: return the length of the past key values
-        pass
-
+        if self.key is None:
+            return 0
+        return self.key.size(2)
 
 @dataclass
 class BaseModelOutputWithPast(ModelOutput):
