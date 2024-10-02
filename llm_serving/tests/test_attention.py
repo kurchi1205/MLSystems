@@ -2,7 +2,8 @@ import os
 import pytest
 
 import torch
-
+import sys
+sys.path.insert(0, "./")
 from model import Attention
 
 
@@ -40,18 +41,17 @@ def test_attention_shape(model):
     query_tensor = torch.randn(batch_size, num_attention_heads, seq_len, attn_head_size)
     key_tensor = torch.randn(batch_size, num_attention_heads, seq_len, attn_head_size)
     value_tensor = torch.randn(batch_size, num_attention_heads, seq_len, attn_head_size)
-
     attention_output = model._attn(query_tensor, key_tensor, value_tensor)
 
     # Check if the output shape is correct
     assert attention_output.size() == (batch_size, seq_len, hidden_size)
 
-    # torch.save({
-    #     "query_tensor": query_tensor,
-    #     "key_tensor": key_tensor,
-    #     "value_tensor": value_tensor,
-    #     "attention_output": attention_output
-    # }, "attention_output.pth")
+    torch.save({
+        "query_tensor": query_tensor,
+        "key_tensor": key_tensor,
+        "value_tensor": value_tensor,
+        "attention_output": attention_output
+    }, "tests/attention_output.pth")
 
 
 def test_attention_value(model):
