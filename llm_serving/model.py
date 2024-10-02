@@ -3,12 +3,14 @@ from dataclasses import dataclass
 from typing import Optional, Tuple, Union
 
 import torch
+import torch.nn.functional as F
 import torch.nn as nn
 
 from transformers.modeling_outputs import ModelOutput
 from transformers.modeling_utils import PreTrainedModel
 from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask
 from transformers.models.gpt_neox import GPTNeoXConfig
+
 
 
 class KVCache:
@@ -22,9 +24,11 @@ class KVCache:
         # Concatenate the key and value tensors along the sequence length dimension
         # If the cache is empty, initialize it with the key and value tensors
         # return the updated key and value tensors
+        pass
 
     def past_key_values_length(self) -> int:
         # (TODO) Task 2: return the length of the past key values
+        pass
 
 
 @dataclass
@@ -237,6 +241,7 @@ class Attention(nn.Module):
         # 7. organize the attention output to [bs, seq_len, hidden_size] and return
 
         # Hint: use torch.finfo(attn_scores.dtype).min to get the mask value
+        pass
 
 
 class FeedForward(nn.Module):
@@ -250,9 +255,14 @@ class FeedForward(nn.Module):
     def _gelu(self, x):
         # (TODO) Task 1: Implement the GELU activation function
         # ref: https://pytorch.org/docs/stable/generated/torch.nn.GELU.html
+        return F.gelu(x, approximate='none')
 
     def forward(self, hidden_states):
         # (TODO) Task 1: Implement the FeedForward forward pass
+        hidden_states = self.dense_h_to_4h(hidden_states)
+        hidden_states_gelu = self._gelu(hidden_states)
+        output_hidden_states = self.dense_4h_to_h(hidden_states_gelu)
+        return output_hidden_states
 
 
 class PythiaLayer(nn.Module):

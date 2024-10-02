@@ -37,15 +37,15 @@ def test_feedforward_shape(model):
     # Check if the output shape is correct
     assert output_tensor.shape == (batch_size, seq_len, hidden_size)
 
-    # torch.save({
-    #     'model_state_dict': model.state_dict(),
-    #     'input_tensor': input_tensor,
-    #     'output_tensor': output_tensor,
-    # }, 'test_feedforward_data.pth')
+    torch.save({
+        'model_state_dict': model.state_dict(),
+        'input_tensor': input_tensor,
+        'output_tensor': output_tensor,
+    }, 'tests/test_feedforward_data_1.pth')
 
 
 def test_feedforward_value(model):
-    path = os.path.join(os.path.dirname(__file__), 'test_feedforward_data.pth')
+    path = os.path.join(os.path.dirname(__file__), 'test_feedforward_data_1.pth')
     loaded = torch.load(path, weights_only=True)
     model.load_state_dict(loaded['model_state_dict'])
     input_tensor = loaded['input_tensor']
