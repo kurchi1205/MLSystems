@@ -54,10 +54,10 @@ def top_p_(logits, top_p=0.9, min_tokens_to_keep=1, filter_value=-float("Inf")):
     probs = torch.nn.functional.softmax(sorted_logits, dim=-1)
     cum_prob = torch.cumsum(probs, dim=-1)
     idx_to_remove = cum_prob > top_p
-    print(cum_prob)
-    print(idx_to_remove)
-    print(logits)
-    logits[idx_to_remove] = filter_value
+    idx_to_remove[..., :min_tokens_to_keep] = False
+    original_idx_to_remove = torch.zeros_like(logits, dtype=torch.bool)
+    original_idx_to_remove.scatter_(dim=-1, index=sorted_indices, src=idx_to_remove)
+    logits = logits.masked_fill(original_idx_to_remove, filter_value)
     return logits
 
 
@@ -113,10 +113,10 @@ def prefill(
     res = model.forward(x, attention_mask=attention_mask)
     logits = res.logits
     kv_cache = res.kvcaches
-    last_word_logit = logits[:, -1, :]
-    probs = logits_to_probs(last_word_logit, temperature=temperature, top_k=top_k, top_p=top_p)
-    next_token = torch.multinomial(probs, num_samples=1, generator=generator)
-    return next_token[0][0], kv_cache
+    probs = logits_to_probs(logits, temperature=temperature, top_k=top_k, top_p=top_p)
+    next_tokens = torch.argmax(probs, dim=-1).squeeze(0)
+    next_token_idx = torch.multinomial(next_tokens.float(), num_samples=1, generator=generator)
+    return next_tokens[next_token_idx[0]], kv_cache
 
 
 def decode(
