@@ -7,6 +7,7 @@ from typing import Optional, List, Tuple
 import torch
 from transformers import AutoTokenizer
 
+
 from model import PythiaForCausalLM, KVCache
 
 default_device = 'cpu'
@@ -38,6 +39,10 @@ def top_k_(logits, top_k=50, filter_value=-float("Inf")):
     # (TODO) Task 7 - Implement top-k sampling
     # Filter logits to only keep the top-k values
     # For the top-k values, keep them as they are, set the rest to filter_value
+    topk_values, topk_indices = torch.topk(logits, top_k)
+    output_logits = torch.full(logits.size(), filter_value)
+    output_logits[topk_indices] = topk_values
+    return output_logits
 
 
 def top_p_(logits, top_p=0.9, min_tokens_to_keep=1, filter_value=-float("Inf")):
@@ -45,6 +50,16 @@ def top_p_(logits, top_p=0.9, min_tokens_to_keep=1, filter_value=-float("Inf")):
     # The function should filter out logits such that the cumulative probability exceeds `top_p`.
     # The function should keep at least `min_tokens_to_keep` tokens.
     # Hint: softmax the logits and calculate the cumulative probabilities.
+    sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+    probs = torch.nn.functional.softmax(sorted_logits, dim=-1)
+    cum_prob = torch.cumsum(probs, dim=-1)
+    idx_to_remove = cum_prob > top_p
+    print(cum_prob)
+    print(idx_to_remove)
+    print(logits)
+    logits[idx_to_remove] = filter_value
+    return logits
+
 
 
 def logits_to_probs(
@@ -73,6 +88,7 @@ def stop_on_eos(token: torch.Tensor) -> bool:
     # (TODO) Task 6 - Implement stopping on EOS token
     # Return True if the token is an EOS token, False otherwise
     # Hint: EOS token you can find in the tokenizer
+    pass
 
 
 def prefill(
@@ -94,6 +110,13 @@ def prefill(
     # Hint: use `logits_to_probs` to get the probabilities from the logits
     # Hint: check CausalLMOutputWithPast for the return type of `model.forward`
     # Hint: You should use `torch.multinomial` and pass the `generator`, so we can reproduce the results
+    res = model.forward(x, attention_mask=attention_mask)
+    logits = res.logits
+    kv_cache = res.kvcaches
+    last_word_logit = logits[:, -1, :]
+    probs = logits_to_probs(last_word_logit, temperature=temperature, top_k=top_k, top_p=top_p)
+    next_token = torch.multinomial(probs, num_samples=1, generator=generator)
+    return next_token[0][0], kv_cache
 
 
 def decode(
@@ -118,6 +141,7 @@ def decode(
 
     # (TODO) Task 6 - Implement stopping on EOS token
     # use `stop_on_eos` to check if the token is an EOS token, if so, break the loop
+    pass
 
 
 @torch.no_grad()

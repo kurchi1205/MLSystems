@@ -211,7 +211,6 @@ class Attention(nn.Module):
         query = qkv[..., : self.head_size].permute(0, 2, 1, 3)
         key = qkv[..., self.head_size: 2 * self.head_size].permute(0, 2, 1, 3)
         value = qkv[..., 2 * self.head_size:].permute(0, 2, 1, 3)
-
         # Compute rotary embeddings on rotary_ndims
         query_rot = query[..., : self.rotary_ndims]
         query_pass = query[..., self.rotary_ndims:]
@@ -226,8 +225,10 @@ class Attention(nn.Module):
             query_rot, key_rot, cos, sin, position_ids)
         query = torch.cat((query, query_pass), dim=-1)
         key = torch.cat((key, key_pass), dim=-1)
-
+        query = query.type(value.dtype)
+        key = key.type(value.dtype)
         # Cache QKV values
+        
         key, value = layer_kvcache.update(key, value)
 
         return query, key, value, layer_kvcache

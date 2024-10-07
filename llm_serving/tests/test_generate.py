@@ -2,6 +2,8 @@ import os
 import platform
 import pytest
 import warnings
+import sys
+sys.path.insert(0, "./")
 
 import torch
 
@@ -26,8 +28,7 @@ def test_prefill(tokerizer_and_model):
     input_text = "My name is "
     encoded = tokenizer(input_text, return_tensors="pt")
     generator = torch.Generator().manual_seed(6216)
-    next_token, kvcaches = prefill(model, encoded["input_ids"], encoded['attention_mask'], generator=generator)
-
+    next_token, kvcaches = prefill(model, encoded["input_ids"], encoded['attention_mask'], generator=generator, top_p=0.8)
     assert len(next_token.size()) == 0
     assert len(kvcaches) == model.config.num_hidden_layers and all([isinstance(kvcache, KVCache) for kvcache in kvcaches])
 
@@ -69,3 +70,6 @@ def test_decode(tokerizer_and_model):
         assert generated_tokens[0].item() == 6275
     else:
         warnings.warn(f"Unknown platform: {platform.system()}")
+
+if __name__=="__main__":
+    test_prefill()
