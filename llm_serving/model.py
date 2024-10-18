@@ -259,7 +259,7 @@ class Attention(nn.Module):
         attn_with_softmax = torch.nn.functional.softmax(att_scores_masked, dim=-1)
         attn_with_dropout = self.attention_dropout(attn_with_softmax)
         attn_values = torch.einsum('bhqk, bhkd -> bhqd', attn_with_dropout, value)
-        attn_values = attn_values.view(query.size(0), query.size(2), -1)
+        attn_values = attn_values.permute(0, 2, 1, 3).contiguous().view(query.size(0), query.size(2), -1)
         return attn_values
 
         # attn_scores = torch.matmul(query, key.transpose(-1, -2))
