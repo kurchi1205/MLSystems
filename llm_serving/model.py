@@ -3,14 +3,12 @@ from dataclasses import dataclass
 from typing import Optional, Tuple, Union
 
 import torch
-import torch.nn.functional as F
 import torch.nn as nn
 
 from transformers.modeling_outputs import ModelOutput
 from transformers.modeling_utils import PreTrainedModel
 from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask
 from transformers.models.gpt_neox import GPTNeoXConfig
-
 
 
 class KVCache:
@@ -24,19 +22,22 @@ class KVCache:
         # Concatenate the key and value tensors along the sequence length dimension
         # If the cache is empty, initialize it with the key and value tensors
         # return the updated key and value tensors
-        if self.key is not None:
-            self.key = torch.cat([self.key, key], dim=2)
-            self.value = torch.cat([self.value, value], dim=2)
-        else:
+        if self.key is None or self.value is None:
             self.key = key
             self.value = value
+        else:
+            self.key = torch.cat([self.key, key], dim=2)
+            self.value = torch.cat([self.value, value], dim=2)
+
+        # Return the updated key and value tensors
         return self.key, self.value
 
     def past_key_values_length(self) -> int:
         # (TODO) Task 2: return the length of the past key values
         if self.key is None:
             return 0
-        return self.key.size(2)
+        return self.key.size(2)  # Sequence length is the third dimension
+
 
 @dataclass
 class BaseModelOutputWithPast(ModelOutput):
@@ -227,8 +228,8 @@ class Attention(nn.Module):
         key = torch.cat((key, key_pass), dim=-1)
         query = query.type(value.dtype)
         key = key.type(value.dtype)
+
         # Cache QKV values
-        
         key, value = layer_kvcache.update(key, value)
 
         return query, key, value, layer_kvcache
@@ -249,8 +250,9 @@ class Attention(nn.Module):
         # 7. organize the attention output to [bs, seq_len, hidden_size] and return
 
         # Hint: use torch.finfo(attn_scores.dtype).min to get the mask value
-        att_scores = torch.einsum('bhqd, bhdk -> bhqk', query, key.transpose(-2, -1)) / (query.size(3)**-0.5)
-        causal_mask = self.bias[:, :, :query.size(2), :key.size(2)]
+        att_scores = torch.einsum('bhqd, bhdk -> bhqk', query, key.transpose(-2, -1)) * self.norm_factor
+        seq_len = query.size(2)
+        causal_mask = self.bias[:, :, :seq_len, :seq_len]
         att_scores_masked = torch.where(causal_mask > 0, att_scores, torch.finfo(att_scores.dtype).min)
         if attention_mask is not None:
             att_scores_masked = att_scores_masked + attention_mask
@@ -260,7 +262,38 @@ class Attention(nn.Module):
         attn_values = attn_values.view(query.size(0), query.size(2), -1)
         return attn_values
 
+        # attn_scores = torch.matmul(query, key.transpose(-1, -2))
 
+        # # Scale the attention scores by the square root of the head size
+        # attn_scores = attn_scores * self.norm_factor
+
+        # # Apply the causal mask to the attention scores using self.bias
+        # seq_len = query.size(-2)
+        # causal_mask = self.bias[:, :, :seq_len, :seq_len]
+        # attn_scores = torch.where(causal_mask, attn_scores, torch.finfo(attn_scores.dtype).min)
+
+        # # Apply the attention mask to the attention scores (optional)
+        # if attention_mask is not None:
+        #     if attention_mask.size() != attn_scores.size():
+        #         attention_mask = attention_mask[:, :, :seq_len, :seq_len]
+        #     attn_scores = attn_scores + attention_mask
+
+        # # Apply the softmax activation function to the attention scores
+        # attn_weights = torch.softmax(attn_scores, dim=-1)
+
+        # # Apply the attention dropout to the attention weights
+        # attn_weights = self.attention_dropout(attn_weights)
+        # attn_weights = attn_weights.to(value.dtype)
+
+
+        # # Compute the attention output by multiplying the attention weights with the value tensor
+        # attn_output = torch.matmul(attn_weights, value)
+
+        # # Reshape the attention output to [bs, seq_len, hidden_size]
+        # batch_size, num_heads, seq_len, head_size = attn_output.size()
+        # attn_output = attn_output.permute(0, 2, 1, 3).contiguous().view(batch_size, seq_len, num_heads * head_size)
+
+        # return attn_output
 
 
 class FeedForward(nn.Module):
@@ -274,7 +307,8 @@ class FeedForward(nn.Module):
     def _gelu(self, x):
         # (TODO) Task 1: Implement the GELU activation function
         # ref: https://pytorch.org/docs/stable/generated/torch.nn.GELU.html
-        return F.gelu(x, approximate='none')
+        ### need to check ****************
+        return 0.5 * x * (1 + torch.erf(x / torch.sqrt(torch.tensor(2.0))))
 
     def forward(self, hidden_states):
         # (TODO) Task 1: Implement the FeedForward forward pass
