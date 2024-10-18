@@ -88,7 +88,14 @@ def stop_on_eos(token: torch.Tensor) -> bool:
     # (TODO) Task 6 - Implement stopping on EOS token
     # Return True if the token is an EOS token, False otherwise
     # Hint: EOS token you can find in the tokenizer
-    pass
+    checkpoint_path = "checkpoints/EleutherAI/pythia-410m"
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(checkpoint_path, clean_up_tokenization_spaces=True)
+    except:
+        tokenizer = AutoTokenizer.from_pretrained('EleutherAI/pythia-410m', clean_up_tokenization_spaces=True)
+    if token == tokenizer.eos_token_id:
+        return True
+    return False
 
 
 def prefill(
@@ -147,6 +154,8 @@ def decode(
         probs = logits_to_probs(logits, temperature=temperature, top_k=top_k, top_p=top_p)
         next_token = torch.multinomial(probs, num_samples=1, generator=generator).squeeze()
         next_tokens.append(next_token)
+        if stop_on_eos(model, next_token):
+            break
         cur_token = next_token.view(1, -1)
     return next_tokens
     # Hint: You should use `torch.multinomial` and pass the `generator`, so we can reproduce the results
