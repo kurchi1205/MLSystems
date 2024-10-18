@@ -28,7 +28,7 @@ def test_prefill(tokerizer_and_model):
     input_text = "My name is "
     encoded = tokenizer(input_text, return_tensors="pt")
     generator = torch.Generator().manual_seed(6216)
-    next_token, kvcaches = prefill(model, encoded["input_ids"], encoded['attention_mask'], generator=generator, top_p=0.8)
+    next_token, kvcaches = prefill(model, encoded["input_ids"], encoded['attention_mask'], generator=generator)
     assert len(next_token.size()) == 0
     assert len(kvcaches) == model.config.num_hidden_layers and all([isinstance(kvcache, KVCache) for kvcache in kvcaches])
 
@@ -49,7 +49,6 @@ def test_decode(tokerizer_and_model):
 
     assert len(next_token.size()) == 0
     assert len(kvcaches) == model.config.num_hidden_layers and all([isinstance(kvcache, KVCache) for kvcache in kvcaches])
-
     if platform.system() == 'Darwin':
         assert next_token.item() == 2015
     elif platform.system() in ['Linux', 'Windows']:

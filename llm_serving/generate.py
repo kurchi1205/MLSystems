@@ -137,7 +137,18 @@ def decode(
     #         attention_mask - the attention mask tensor of shape [batch_size, seq_len] (all ones for this assignment)
     #         num_new_tokens - the number of new tokens to generate
     # Output: new_tokens - the list of new token tensors of shape [batch_size]
-
+    next_tokens = []
+    while len(next_tokens) < num_new_tokens:
+        with torch.no_grad():
+            res = model.forward(cur_token, attention_mask=attention_mask, kvcaches=kvcaches)
+        logits = res.logits
+        kvcaches = res.kvcaches
+        logits = logits[:, -1, :]
+        probs = logits_to_probs(logits, temperature=temperature, top_k=top_k, top_p=top_p)
+        next_token = torch.multinomial(probs, num_samples=1, generator=generator).squeeze()
+        next_tokens.append(next_token)
+        cur_token = next_token.view(1, -1)
+    return next_tokens
     # Hint: You should use `torch.multinomial` and pass the `generator`, so we can reproduce the results
 
     # (TODO) Task 6 - Implement stopping on EOS token

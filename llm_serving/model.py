@@ -255,6 +255,7 @@ class Attention(nn.Module):
         causal_mask = self.bias[:, :, :seq_len, :seq_len]
         att_scores_masked = torch.where(causal_mask > 0, att_scores, torch.finfo(att_scores.dtype).min)
         if attention_mask is not None:
+            attention_mask = attention_mask[:, :, :seq_len, :seq_len]
             att_scores_masked = att_scores_masked + attention_mask
         attn_with_softmax = torch.nn.functional.softmax(att_scores_masked, dim=-1)
         attn_with_dropout = self.attention_dropout(attn_with_softmax)
@@ -262,38 +263,6 @@ class Attention(nn.Module):
         attn_values = attn_values.permute(0, 2, 1, 3).contiguous().view(query.size(0), query.size(2), -1)
         return attn_values
 
-        # attn_scores = torch.matmul(query, key.transpose(-1, -2))
-
-        # # Scale the attention scores by the square root of the head size
-        # attn_scores = attn_scores * self.norm_factor
-
-        # # Apply the causal mask to the attention scores using self.bias
-        # seq_len = query.size(-2)
-        # causal_mask = self.bias[:, :, :seq_len, :seq_len]
-        # attn_scores = torch.where(causal_mask, attn_scores, torch.finfo(attn_scores.dtype).min)
-
-        # # Apply the attention mask to the attention scores (optional)
-        # if attention_mask is not None:
-        #     if attention_mask.size() != attn_scores.size():
-        #         attention_mask = attention_mask[:, :, :seq_len, :seq_len]
-        #     attn_scores = attn_scores + attention_mask
-
-        # # Apply the softmax activation function to the attention scores
-        # attn_weights = torch.softmax(attn_scores, dim=-1)
-
-        # # Apply the attention dropout to the attention weights
-        # attn_weights = self.attention_dropout(attn_weights)
-        # attn_weights = attn_weights.to(value.dtype)
-
-
-        # # Compute the attention output by multiplying the attention weights with the value tensor
-        # attn_output = torch.matmul(attn_weights, value)
-
-        # # Reshape the attention output to [bs, seq_len, hidden_size]
-        # batch_size, num_heads, seq_len, head_size = attn_output.size()
-        # attn_output = attn_output.permute(0, 2, 1, 3).contiguous().view(batch_size, seq_len, num_heads * head_size)
-
-        # return attn_output
 
 
 class FeedForward(nn.Module):
