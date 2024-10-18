@@ -112,11 +112,12 @@ def prefill(
     # Hint: You should use `torch.multinomial` and pass the `generator`, so we can reproduce the results
     res = model.forward(x, attention_mask=attention_mask)
     logits = res.logits
+    last_logits = logits[:, -1, :]
+
     kv_cache = res.kvcaches
-    probs = logits_to_probs(logits, temperature=temperature, top_k=top_k, top_p=top_p)
-    next_tokens = torch.argmax(probs, dim=-1).squeeze(0)
-    next_token_idx = torch.multinomial(next_tokens.float(), num_samples=1, generator=generator)
-    return next_tokens[next_token_idx[0]], kv_cache
+    probs = logits_to_probs(last_logits, temperature=temperature, top_k=top_k, top_p=top_p)
+    next_token = torch.multinomial(probs, num_samples=1, generator=generator)
+    return next_token.squeeze(), kv_cache
 
 
 def decode(
