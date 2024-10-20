@@ -39,10 +39,10 @@ def top_k_(logits, top_k=50, filter_value=-float("Inf")):
     # (TODO) Task 7 - Implement top-k sampling
     # Filter logits to only keep the top-k values
     # For the top-k values, keep them as they are, set the rest to filter_value
-    topk_values, topk_indices = torch.topk(logits, top_k)
-    output_logits = torch.full(logits.size(), filter_value)
-    output_logits[topk_indices] = topk_values
-    return output_logits
+    topk_values, topk_indices = torch.topk(logits, top_k, dim=-1)
+    min_top_k = topk_values[:, -1].unsqueeze(-1)
+    logits = torch.where(logits < min_top_k, torch.tensor(filter_value), logits)
+    return logits
 
 
 def top_p_(logits, top_p=0.9, min_tokens_to_keep=1, filter_value=-float("Inf")):

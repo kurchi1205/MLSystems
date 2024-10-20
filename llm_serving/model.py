@@ -276,7 +276,6 @@ class FeedForward(nn.Module):
     def _gelu(self, x):
         # (TODO) Task 1: Implement the GELU activation function
         # ref: https://pytorch.org/docs/stable/generated/torch.nn.GELU.html
-        ### need to check ****************
         return 0.5 * x * (1 + torch.erf(x / torch.sqrt(torch.tensor(2.0))))
 
     def forward(self, hidden_states):
