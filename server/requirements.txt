@@ -1,0 +1,8 @@
+transformers
+torch<2.5.0
+asyncio
+uuid
+uvicorn
+fastapi
+pydantic
+aiohttp
