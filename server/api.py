@@ -73,7 +73,16 @@ class RequestPool:
             # for embedding, you should return EmbeddingResponse(embedding=seq.embedding)
             # for generate, you should return GenerateResponse(text=seq.decoded_tokens, status=seq.status)
             # ==== start your code here ====
-
+            request = self.requests[request_id]
+            consumed_tokens = serve_step(model, tokenizer, [request])
+            if request.embedding_only is not True:
+                return GenerateResponse(
+                    text=request.decoded_tokens,
+                    status=request.status
+                )
+            return EmbeddingResponse(
+                embedding=[0.0]
+            )
             pass
             # ==== end of your code ====
 

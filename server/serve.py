@@ -42,8 +42,10 @@ def prepare_inputs_for_prefill(seq_states, tokenizer, model):
     # TODO: pad the input ids
     # pad the input ids with the eos_token to the max length in the batch
     # ==== start your code here ====
-    padded_input_ids = None
-
+    max_length = max(len(ids) for ids in input_ids)
+    eos_token_id = tokenizer.eos_token_id
+    padded_input_ids = [torch.nn.functional.pad(ids, (0, max_length - ids.size(0)), value=eos_token_id) for ids in input_ids]
+    padded_input_ids = torch.stack(padded_input_ids)
 
     # ==== end of your code ====
 
@@ -51,9 +53,18 @@ def prepare_inputs_for_prefill(seq_states, tokenizer, model):
     # TODO: pad the attention mask
     # pad the attention mask with 0 to the max length in the batch
     # ==== start your code here ====
-    attention_mask = None
-
-
+    attention_mask = []
+    for seq_state in seq_states:
+        attention_mask.append(
+            (
+            tokenizer(seq_state.prompt, return_tensors="pt")
+            .attention_mask[0]
+            .to(model.device)
+            )
+        )
+    max_length = max(len(mask) for mask in attention_mask)
+    padded_attention_mask = [torch.nn.functional.pad(mask, (0, max_length - mask.size(0)), value=0) for mask in attention_mask]
+    attention_mask = torch.stack(padded_attention_mask)
     # ==== end of your code ====
     return padded_input_ids, attention_mask
 
@@ -116,8 +127,12 @@ def prefill(seq_states, model, tokenizer):
     # TODO:update the seq states
     # including: generated_tokens(int), input_ids(torch.Tensor), has_prefilled(bool), decoded_tokens(str), past_key_values(list[tuple[torch.Tensor, torch.Tensor]])
     # ==== start your code here ====
-
-
+    for i, seq_state in enumerate(seq_states):
+        seq_state.generated_tokens = len(decoded_tokens[i])
+        seq_state.input_ids = padded_input_ids[i]
+        seq_state.has_prefilled = True
+        seq_state.decoded_tokens = decoded_tokens[i]
+        seq_state.past_key_values = past_key_values[i]
     # ==== end of your code ====
     return seq_states
 
