@@ -46,7 +46,6 @@ def prepare_inputs_for_prefill(seq_states, tokenizer, model):
     eos_token_id = tokenizer.eos_token_id
     padded_input_ids = [torch.nn.functional.pad(ids, (0, max_length - ids.size(0)), value=eos_token_id) for ids in input_ids]
     padded_input_ids = torch.stack(padded_input_ids)
-
     # ==== end of your code ====
 
 
@@ -71,14 +70,19 @@ def prepare_inputs_for_prefill(seq_states, tokenizer, model):
 
 def prepare_inputs_for_decode(seq_states):
     # cat the input ids
-    input_ids = torch.stack([seq_state.input_ids for seq_state in seq_states], dim=0)
+    input_ids = torch.stack([seq_state.input_ids for seq_state in seq_states])
 
     # TODO: pad the attention mask
     # pad the attention mask with 0 to the max length in the batch
     # attention mask shape: (batch_size, seq_len)
     # ==== start your code here ====
     attention_mask = None
-
+    max_length = max(seq_state.input_ids.size(0) for seq_state in seq_states)
+    attention_mask = [
+        torch.nn.functional.pad(torch.ones(seq_state.input_ids.size(0)), (0, max_length - seq_state.input_ids.size(0)), value=0)
+        for seq_state in seq_states
+    ]
+    attention_mask = torch.stack(attention_mask).long().to(input_ids.device)
 
     # ==== end of your code ====
 
@@ -86,11 +90,43 @@ def prepare_inputs_for_decode(seq_states):
     # TODO: pad past key values
     # pad the past key values with 0 to the max length in the batch
     # ==== start your code here ====
+    past_key_values = [seq_state.past_key_values for seq_state in seq_states]
+    num_layers = len(past_key_values[0])  # Number of layers in past_key_values
     padded_past_key_values = []
+    padded_past_key_values = []
+    num_layers = len(seq_states[0].past_key_values)
+    for layer_idx in range(num_layers):
+        layer_keys = []
+        layer_values = []
+        seq_lengths = [seq_state.past_key_values[layer_idx][0].size(1) for seq_state in seq_states]
+        max_seq_length = max(seq_lengths)
+        for seq_state in seq_states:
+            key, value = seq_state.past_key_values[layer_idx]
+            current_seq_length = key.size(1)
 
-
+            # Pad keys and values to max_seq_length
+            padded_key = torch.nn.functional.pad(
+                key,
+                (0, 0, 0, max_seq_length - current_seq_length),
+                value=0
+            )
+            padded_value = torch.nn.functional.pad(
+                value,
+                (0, 0, 0, max_seq_length - current_seq_length),
+                value=0
+            )
+            
+            layer_keys.append(padded_key)
+            layer_values.append(padded_value)
+        
+        # Stack keys and values for this layer
+        # Shape: (batch_size, num_heads, max_seq_length, head_dim)
+        stacked_keys = torch.stack(layer_keys, dim=0)
+        stacked_values = torch.stack(layer_values, dim=0)
+        
+        padded_past_key_values.append((stacked_keys, stacked_values))
     # ==== end of your code ====
-    return attention_mask, padded_past_key_values, input_ids
+    return attention_mask, tuple(padded_past_key_values), input_ids
 
 
 def embedding_only(seq_states, model, tokenizer):
@@ -129,10 +165,13 @@ def prefill(seq_states, model, tokenizer):
     # ==== start your code here ====
     for i, seq_state in enumerate(seq_states):
         seq_state.generated_tokens = len(decoded_tokens[i])
-        seq_state.input_ids = padded_input_ids[i]
+        seq_state.input_ids = model_inputs[i]
         seq_state.has_prefilled = True
         seq_state.decoded_tokens = decoded_tokens[i]
-        seq_state.past_key_values = past_key_values[i]
+        seq_state.past_key_values = [(
+            past_key_values[layer_idx][0][i],  # Select the key tensor for this sequence
+            past_key_values[layer_idx][1][i]   # Select the value tensor for this sequence
+        ) for layer_idx in range(len(past_key_values))]
     # ==== end of your code ====
     return seq_states
 
@@ -151,8 +190,17 @@ def decode(seq_states, model, tokenizer):
     # TODO:update the seq states
     # including: generated_tokens(int), input_ids(torch.Tensor), decoded_tokens(str), past_key_values(list[tuple[torch.Tensor, torch.Tensor]])
     # ==== start your code here ====
-
-
+    for i, seq_state in enumerate(seq_states):
+        seq_state.generated_tokens += len(decoded_tokens[i])
+        seq_state.input_ids = model_inputs[i]
+        seq_state.decoded_tokens = seq_state.decoded_tokens + decoded_tokens[i]
+        seq_state.past_key_values = [
+            (
+                out.past_key_values[layer_idx][0][i],
+                out.past_key_values[layer_idx][1][i]
+            )
+            for layer_idx in range(len(out.past_key_values))
+        ]
     # ==== end of your code ====
     return seq_states
 
