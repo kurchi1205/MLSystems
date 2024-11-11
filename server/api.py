@@ -73,17 +73,19 @@ class RequestPool:
             # for embedding, you should return EmbeddingResponse(embedding=seq.embedding)
             # for generate, you should return GenerateResponse(text=seq.decoded_tokens, status=seq.status)
             # ==== start your code here ====
-            request = self.requests[request_id]
-            consumed_tokens = serve_step(model, tokenizer, [request])
-            if request.embedding_only is not True:
-                return GenerateResponse(
-                    text=request.decoded_tokens,
-                    status=request.status
-                )
-            return EmbeddingResponse(
-                embedding=[0.0]
-            )
-            pass
+            async with self.lock:
+                request = self.requests.get(request_id)
+                # If the request is completed, return the appropriate response
+                if request.status == RequestStatus.COMPLETED:
+                    if request.embedding_only:
+                        return EmbeddingResponse(embedding=request.embedding)
+                    else:
+                        return GenerateResponse(text=request.decoded_tokens, status=request.status)
+                elif request.status == RequestStatus.ERROR:
+                    return GenerateResponse(text=None, status=request.status)
+                elif request.status == RequestStatus.QUOTA_EXCEEDED:
+                    return GenerateResponse(text=None, status=request.status)
+        
             # ==== end of your code ====
 
     def stop_generation(self, tokenizer):
@@ -93,8 +95,14 @@ class RequestPool:
         # or the last token is eos_token
         # or the sequence is an embedding only sequence (seq.embedding_only == True)
         # ==== start your code here ====
-
         stop_list = []
+        for id, request in self.active_requests.items():
+            if request.max_generated_tokens > self.max_generated_tokens:
+                stop_list.append(request)
+            elif request.input_ids is not None and request.input_ids[-1] == tokenizer.eos_token_id:
+                stop_list.append(request)
+            elif request.embedding_only:
+                stop_list.append(request)
         # ==== end of your code ====
         return stop_list
 
@@ -164,8 +172,9 @@ model_name = "meta-llama/Llama-3.2-1B-Instruct"
 model = LlamaForCausalLM.from_pretrained(
     model_name,
     torch_dtype=torch.bfloat16,
+    token="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"
 ).cuda()
-tokenizer = AutoTokenizer.from_pretrained(model_name)
+tokenizer = AutoTokenizer.from_pretrained(model_name, token="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")
 
 
 @asynccontextmanager
