@@ -73,6 +73,7 @@ class RequestPool:
             # for embedding, you should return EmbeddingResponse(embedding=seq.embedding)
             # for generate, you should return GenerateResponse(text=seq.decoded_tokens, status=seq.status)
             # ==== start your code here ====
+            await self.process_request(model=model, tokenizer=tokenizer)
             async with self.lock:
                 request = self.requests.get(request_id)
                 # If the request is completed, return the appropriate response
@@ -85,7 +86,7 @@ class RequestPool:
                     return GenerateResponse(text=None, status=request.status)
                 elif request.status == RequestStatus.QUOTA_EXCEEDED:
                     return GenerateResponse(text=None, status=request.status)
-        
+            await asyncio.sleep(interval)
             # ==== end of your code ====
 
     def stop_generation(self, tokenizer):
@@ -97,7 +98,7 @@ class RequestPool:
         # ==== start your code here ====
         stop_list = []
         for id, request in self.active_requests.items():
-            if request.max_generated_tokens > self.max_generated_tokens:
+            if request.generated_tokens > self.max_generated_tokens:
                 stop_list.append(request)
             elif request.input_ids is not None and request.input_ids[-1] == tokenizer.eos_token_id:
                 stop_list.append(request)
@@ -113,7 +114,12 @@ class RequestPool:
             # if active requests are less than max_active_requests,
             # pop requests from the queue (if any) and put it into active requests
             # ==== start your code here ====
-
+            if self.queue.empty() and len(self.active_requests.keys()) == 0:
+                return
+            while len(self.active_requests.keys()) < self.max_active_requests and not self.queue.empty():
+                async with self.lock:
+                    request_id = await self.queue.get()
+                    self.active_requests[request_id] = self.requests[request_id]
 
             # ==== end of your code ====
 
