@@ -128,8 +128,13 @@ class RequestPool:
                 # pop it from the active requests and requests
                 # also set the status of the requests to RequestStatus.QUOTA_EXCEEDED
                 # ==== start your code here ====
-
-                pass
+                async with self.lock:
+                    for request_id, request in self.requests.items():
+                        request.status = RequestStatus.QUOTA_EXCEEDED
+                        if request_id in self.active_requests:
+                            self.active_requests.pop(request_id)
+                    while not self.queue.empty():
+                        queued_request_id = await self.queue.get()
                 # ==== end of your code ====
 
             if len(self.active_requests) > 0:
