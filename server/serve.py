@@ -143,8 +143,10 @@ def embedding_only(seq_states, model, tokenizer):
     # you need to get the embedding of the last layer's output (mean across sequence)
     # and set it to the embedding attribute of each seq_state
     # ==== start your code here ====
-
-
+    last_hidden_state = out.hidden_states[-1]
+    embeddings = (last_hidden_state * attention_mask.unsqueeze(-1)).sum(dim=1) / attention_mask.sum(dim=1, keepdim=True)
+    for i, seq_state in enumerate(seq_states):
+        seq_state.embedding = embeddings[i].detach().cpu().tolist()
     # ==== end of your code ====
     return seq_states
 
