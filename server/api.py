@@ -85,7 +85,7 @@ class RequestPool:
                 elif request.status == RequestStatus.ERROR:
                     return GenerateResponse(text=None, status=request.status)
                 elif request.status == RequestStatus.QUOTA_EXCEEDED:
-                    return GenerateResponse(text=None, status=request.status)
+                    return GenerateResponse(text=request.decoded_tokens, status=request.status)
             await asyncio.sleep(interval)
             # ==== end of your code ====
 
@@ -130,8 +130,9 @@ class RequestPool:
                 # ==== start your code here ====
                 async with self.lock:
                     for request_id, request in self.requests.items():
-                        request.status = RequestStatus.QUOTA_EXCEEDED
                         if request_id in self.active_requests:
+                            request.status = RequestStatus.QUOTA_EXCEEDED
+                            request.decoded_tokens = self.active_requests[request_id].decoded_tokens
                             self.active_requests.pop(request_id)
                     while not self.queue.empty():
                         queued_request_id = await self.queue.get()
