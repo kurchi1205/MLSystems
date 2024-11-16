@@ -22,9 +22,17 @@ def retrieve_past_key_values(past_key_values, i, generated_tokens):
     # you need to retrieve the past key values for the every sequence in the batch
     # the size of the retrieved key/value should be (num_heads, unpadded_seq_len, head_dim) with same structure
     # ==== start your code here ====
-
-
-
+    
+    for layer_kv in past_key_values:
+        layer_past_kv = []
+        key_i = layer_kv[0][i:i+1].squeeze(0)
+        value_i = layer_kv[1][i:i+1].squeeze(0)
+        key_i = key_i[:, :generated_tokens, :]
+        value_i = value_i[:, :generated_tokens, :]
+        layer_past_kv.append(key_i)
+        layer_past_kv.append(value_i)
+        new_past_key_values.append(layer_past_kv)
+    
     # ==== end of your code ====
     return new_past_key_values
 
@@ -166,7 +174,7 @@ def prefill(seq_states, model, tokenizer):
     # including: generated_tokens(int), input_ids(torch.Tensor), has_prefilled(bool), decoded_tokens(str), past_key_values(list[tuple[torch.Tensor, torch.Tensor]])
     # ==== start your code here ====
     for i, seq_state in enumerate(seq_states):
-        seq_state.generated_tokens = len(decoded_tokens[i])
+        seq_state.generated_tokens = len(seq_states[i].input_ids) + len(decoded_tokens[i])
         seq_state.input_ids = model_inputs[i]
         seq_state.has_prefilled = True
         seq_state.decoded_tokens = decoded_tokens[i]
@@ -196,13 +204,7 @@ def decode(seq_states, model, tokenizer):
         seq_state.generated_tokens += len(decoded_tokens[i])
         seq_state.input_ids = model_inputs[i]
         seq_state.decoded_tokens = seq_state.decoded_tokens + decoded_tokens[i]
-        seq_state.past_key_values = [
-            (
-                out.past_key_values[layer_idx][0][i],
-                out.past_key_values[layer_idx][1][i]
-            )
-            for layer_idx in range(len(out.past_key_values))
-        ]
+        seq_state.past_key_values = retrieve_past_key_values(out.past_key_values, i, seq_state.generated_tokens)
     # ==== end of your code ====
     return seq_states
 
